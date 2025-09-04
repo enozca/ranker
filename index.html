@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ranker — Rankings para tudo</title>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#7c3aed; --glass: rgba(255,255,255,0.03);
+    --success:#10b981; --danger:#ef4444; --radius:12px;
+    font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:linear-gradient(180deg,#071028 0%, #071525 100%); color:#e6eef8;
+    padding:20px; font-size:14px;
+  }
+  header{display:flex;gap:16px;align-items:center; margin-bottom:16px;}
+  h1{margin:0;font-size:20px}
+  .container{display:grid;grid-template-columns:320px 1fr;gap:16px;}
+  .panel{background:linear-gradient(180deg,var(--card), rgba(11,18,32,0.8)); padding:14px;border-radius:var(--radius); box-shadow: 0 6px 20px rgba(2,6,23,0.6);}
+  .sidebar .section{margin-bottom:12px}
+  label{display:block;color:var(--muted); font-size:12px;margin-bottom:6px}
+  input[type="text"], textarea, select, input[type="number"]{
+    width:100%; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);
+    background:rgba(255,255,255,0.02); color:inherit;
+  }
+  button{cursor:pointer;padding:8px 10px;border-radius:8px;border:0;background:var(--accent); color:white}
+  .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.04)}
+  .btn-danger{background:var(--danger)}
+  .muted{color:var(--muted);font-size:13px}
+  .rank-list{display:flex;flex-direction:column;gap:8px; margin-top:8px}
+  .item{display:flex; align-items:center; gap:12px; padding:10px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border:1px solid rgba(255,255,255,0.02)}
+  .item .meta{flex:1;display:flex;flex-direction:column}
+  .score{min-width:64px;text-align:center;font-weight:700}
+  .controls{display:flex;gap:6px; align-items:center}
+  .tags{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{background:var(--glass); padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .topbar{display:flex;gap:8px;justify-content:space-between; align-items:center; margin-bottom:12px}
+  .search{display:flex;gap:8px;align-items:center}
+  .flex{display:flex;gap:8px;align-items:center}
+  .small{font-size:12px;padding:6px 8px}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  footer{margin-top:12px;color:var(--muted); font-size:13px}
+  @media (max-width:900px){ .container{grid-template-columns:1fr} .sidebar{order:2} }
+  .drag-handle{cursor:grab; user-select:none; opacity:0.6}
+  .hidden{display:none}
+  .chart-wrap{padding:8px;background:transparent;border-radius:8px}
+  .list-header{display:flex;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ranker — Crie rankings de qualquer coisa</h1>
+  <div class="muted">Salvo localmente no navegador • Exporte/importe para compartilhar</div>
+</header>
+
+<div class="container">
+  <!-- SIDEBAR: Categorias & criação -->
+  <aside class="sidebar panel">
+    <div class="section">
+      <label for="catName">Nova categoria</label>
+      <input id="catName" placeholder="Ex: Filmes, RPG, Pratos..." />
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="createCatBtn">Criar categoria</button>
+        <button id="importBtn" class="btn-ghost small">Importar JSON/CSV</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Categorias</label>
+      <div id="categoriesList" class="muted">Carregando...</div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:10px 0" />
+
+    <div class="section">
+      <label for="itemName">Adicionar item</label>
+      <input id="itemName" placeholder="Nome do item (ex: O Poderoso Chefão)" />
+      <label for="itemDesc" class="muted" style="margin-top:6px">Descrição (opcional)</label>
+      <textarea id="itemDesc" rows="2" placeholder="Breve descrição"></textarea>
+      <label class="muted" style="margin-top:6px">Tags (separadas por vírgula)</label>
+      <input id="itemTags" placeholder="ex: clássico, drama" />
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="addItemBtn">Adicionar item</button>
+        <button id="bulkAddBtn" class="btn-ghost small">Adicionar em massa (CSV)</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Exportar / Limpar</label>
+      <div style="display:flex;gap:8px">
+        <button id="exportJsonBtn" class="small btn-ghost">Exportar JSON</button>
+        <button id="exportCsvBtn" class="small btn-ghost">Exportar CSV</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="clearCategoryBtn" class="btn-ghost small">Limpar categoria</button>
+        <button id="clearAllBtn" class="btn-danger small">Apagar tudo</button>
+      </div>
+    </div>
+
+    <footer class="muted">Atalhos: <strong>N</strong> Nova categoria • <strong>I</strong> Novo item • Drag para ordenar</footer>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="panel">
+    <div class="topbar">
+      <div class="toolbar">
+        <label class="muted">Categoria</label>
+        <select id="selectCategory" aria-label="Selecionar categoria"></select>
+
+        <label class="muted">Ordenar por</label>
+        <select id="sortBy">
+          <option value="score-desc">Pontuação (maior)</option>
+          <option value="score-asc">Pontuação (menor)</option>
+          <option value="name-asc">Nome A→Z</option>
+          <option value="name-desc">Nome Z→A</option>
+          <option value="date-desc">Adicionados (recentes)</option>
+          <option value="custom">Manual (drag & drop)</option>
+        </select>
+
+        <label class="muted">Filtrar por tag</label>
+        <input id="filterTag" placeholder="digite uma tag" style="width:160px" />
+      </div>
+
+      <div class="search">
+        <input id="searchInput" placeholder="Pesquisar itens..." />
+        <button id="clearSearch" class="btn-ghost small">×</button>
+      </div>
+    </div>
+
+    <div class="list-header">
+      <div>
+        <strong id="categoryTitle">—</strong>
+        <div class="muted" id="categoryCount">0 itens</div>
+      </div>
+
+      <div class="flex">
+        <button id="compareBtn" class="small btn-ghost">Comparar</button>
+        <button id="showChartBtn" class="small btn-ghost">Ver gráfico</button>
+      </div>
+    </div>
+
+    <div id="mainContent">
+      <div id="rankList" class="rank-list" aria-live="polite"></div>
+
+      <div id="comparePanel" class="panel hidden">
+        <h3>Comparar itens</h3>
+        <div class="compare">
+          <div>
+            <label>Item A</label>
+            <select id="compareA"></select>
+            <div id="compareADetails" class="muted small"></div>
+          </div>
+          <div>
+            <label>Item B</label>
+            <select id="compareB"></select>
+            <div id="compareBDetails" class="muted small"></div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <button id="closeCompare" class="small btn-ghost">Fechar</button>
+        </div>
+      </div>
+
+      <div id="chartPanel" class="panel hidden" style="margin-top:10px">
+        <h3>Gráfico de pontuações</h3>
+        <div class="chart-wrap"><canvas id="scoreChart" height="120"></canvas></div>
+        <div style="margin-top:8px"><button id="closeChart" class="small btn-ghost">Fechar gráfico</button></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Hidden file input for import -->
+<input id="fileInput" type="file" accept=".json,.csv,text/csv" class="hidden" />
+
+<script>
+/* ============ STORAGE KEYS & UTIL ============ */
+const STORAGE_KEY = 'ranker-data-v1';
+
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+function now(){ return new Date().toISOString(); }
+function saveState(state){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ console.error('load error', e); return null; }
+}
+
+/* ============ DEFAULT SAMPLE DATA ============ */
+const sample = {
+  categories: [
+    { id: 'cat_movies', name: 'Filmes', createdAt: now(), order: 0 },
+    { id: 'cat_food', name: 'Pratos', createdAt: now(), order: 1 }
+  ],
+  items: [
+    { id: uid('it'), cat: 'cat_movies', name: 'O Poderoso Chefão', desc:'Clássico de máfia', tags:['clássico','drama'], score:9.6, votes:1200, createdAt: now(), customOrder:0 },
+    { id: uid('it'), cat: 'cat_movies', name: 'Clube da Luta', desc:'Cult movie', tags:['cult','drama'], score:9.0, votes:900, createdAt: now(), customOrder:1 },
+    { id: uid('it'), cat: 'cat_food', name: 'Pizza Margherita', desc:'Simples e deliciosa', tags:['italiano','massa'], score:8.5, votes:300, createdAt: now(), customOrder:0 },
+  ]
+};
+
+/* ============ APP STATE ============ */
+let state = loadState() || sample;
+let currentCategoryId = state.categories[0]?.id || null;
+let currentSort = 'score-desc';
+
+/* ============ DOM REFERENCES ============ */
+const selectCategory = document.getElementById('selectCategory');
+const categoriesList = document.getElementById('categoriesList');
+const categoryTitle = document.getElementById('categoryTitle');
+const categoryCount = document.getElementById('categoryCount');
+const rankList = document.getElementById('rankList');
+const createCatBtn = document.getElementById('createCatBtn');
+const catNameInput = document.getElementById('catName');
+const itemNameInput = document.getElementById('itemName');
+const itemDescInput = document.getElementById('itemDesc');
+const itemTagsInput = document.getElementById('itemTags');
+const addItemBtn = document.getElementById('addItemBtn');
+const sortBy = document.getElementById('sortBy');
+const filterTag = document.getElementById('filterTag');
+const searchInput = document.getElementById('searchInput');
+const clearSearch = document.getElementById('clearSearch');
+const compareBtn = document.getElementById('compareBtn');
+const comparePanel = document.getElementById('comparePanel');
+const compareA = document.getElementById('compareA');
+const compareB = document.getElementById('compareB');
+const compareADetails = document.getElementById('compareADetails');
+const compareBDetails = document.getElementById('compareBDetails');
+const closeCompare = document.getElementById('closeCompare');
+const showChartBtn = document.getElementById('showChartBtn');
+const chartPanel = document.getElementById('chartPanel');
+const scoreChartCanvas = document.getElementById('scoreChart');
+const closeChart = document.getElementById('closeChart');
+const fileInput = document.getElementById('fileInput');
+const importBtn = document.getElementById('importBtn');
+const exportJsonBtn = document.getElementById('exportJsonBtn');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+const clearCategoryBtn = document.getElementById('clearCategoryBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
+const bulkAddBtn = document.getElementById('bulkAddBtn');
+
+/* ============ RENDERING ============ */
+function renderCategories(){
+  selectCategory.innerHTML = '';
+  categoriesList.innerHTML = '';
+  state.categories.sort((a,b)=> (a.order||0) - (b.order||0));
+  state.categories.forEach(cat=>{
+    const opt = document.createElement('option');
+    opt.value = cat.id; opt.textContent = cat.name;
+    selectCategory.appendChild(opt);
+
+    const el = document.createElement('div');
+    el.style.display='flex'; el.style.justifyContent='space-between'; el.style.alignItems='center';
+    el.innerHTML = `<div>${cat.name}</div>`;
+    const btns = document.createElement('div');
+    const del = document.createElement('button'); del.className='btn-ghost small'; del.textContent='Excluir';
+    del.onclick = ()=>{ if(confirm('Excluir categoria e todos os itens?')) { deleteCategory(cat.id) } };
+    btns.appendChild(del);
+    el.appendChild(btns);
+    categoriesList.appendChild(el);
+  });
+  if(!state.categories.length){
+    categoriesList.textContent = 'Nenhuma categoria. Crie uma!';
+    selectCategory.innerHTML = '<option value="">— sem categorias —</option>';
+    currentCategoryId = null;
+  }
+  if(!currentCategoryId && state.categories[0]) currentCategoryId = state.categories[0].id;
+  selectCategory.value = currentCategoryId;
+  renderMain();
+}
+
+function getItemsForCategory(catId){
+  return state.items.filter(it=>it.cat === catId);
+}
+
+function formatTags(tags){ return (tags||[]).map(t=>t.trim()).filter(Boolean); }
+
+function renderMain(){
+  if(!currentCategoryId){ categoryTitle.textContent = 'Nenhuma categoria'; categoryCount.textContent='0 itens'; rankList.innerHTML=''; return; }
+  const cat = state.categories.find(c=>c.id===currentCategoryId);
+  categoryTitle.textContent = cat?.name || '—';
+  let items = getItemsForCategory(currentCategoryId).slice();
+
+  // search & tag filter
+  const q = searchInput.value.trim().toLowerCase();
+  if(q) items = items.filter(it => (it.name+ ' ' + (it.desc||'') + ' ' + (it.tags||[]).join(' ')).toLowerCase().includes(q));
+  const t = filterTag.value.trim().toLowerCase();
+  if(t) items = items.filter(it => (it.tags||[]).some(tag=>tag.toLowerCase().includes(t)));
+
+  // sorting
+  const s = sortBy.value;
+  currentSort = s;
+  if(s === 'score-desc') items.sort((a,b)=> (b.score||0) - (a.score||0));
+  else if(s === 'score-asc') items.sort((a,b)=> (a.score||0) - (b.score||0));
+  else if(s === 'name-asc') items.sort((a,b)=> a.name.localeCompare(b.name));
+  else if(s === 'name-desc') items.sort((a,b)=> b.name.localeCompare(a.name));
+  else if(s === 'date-desc') items.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+  else if(s === 'custom') items.sort((a,b)=> (a.customOrder||0) - (b.customOrder||0));
+
+  categoryCount.textContent = items.length + ' itens';
+
+  // render items
+  rankList.innerHTML = '';
+  items.forEach((it, idx)=>{
+    const el = document.createElement('div');
+    el.className='item';
+    el.setAttribute('draggable','true');
+    el.dataset.id = it.id;
+
+    const drag = document.createElement('div'); drag.className='drag-handle'; drag.textContent='⋮⋮';
+    drag.title='Arraste para reordenar (modo Manual)';
+    drag.style.width='26px'; drag.style.textAlign='center';
+    el.appendChild(drag);
+
+    const meta = document.createElement('div'); meta.className='meta';
+    const title = document.createElement('div'); title.innerHTML = `<strong>${it.name}</strong> <span class="muted" style="font-size:12px"> • ${it.desc||''}</span>`;
+    const tagsWrap = document.createElement('div'); tagsWrap.className='tags';
+    (it.tags||[]).forEach(t=>{ const s=document.createElement('span'); s.className='tag'; s.textContent=t; tagsWrap.appendChild(s); });
+
+    const info = document.createElement('div'); info.className='muted small';
+    info.textContent = `Votos: ${it.votes||0} • Criado: ${new Date(it.createdAt).toLocaleDateString()}`;
+
+    meta.appendChild(title); meta.appendChild(tagsWrap); meta.appendChild(info);
+
+    const scoreEl = document.createElement('div'); scoreEl.className='score';
+    scoreEl.innerHTML = `<div style="font-size:18px">${Number((it.score||0)).toFixed(1)}</div>
+      <div class="muted small">(${it.votes||0} votos)</div>`;
+
+    const controls = document.createElement('div'); controls.className='controls';
+    const up = document.createElement('button'); up.className='small btn-ghost'; up.textContent='▲';
+    const down = document.createElement('button'); down.className='small btn-ghost'; down.textContent='▼';
+    const edit = document.createElement('button'); edit.className='small btn-ghost'; edit.textContent='Editar';
+    const remove = document.createElement('button'); remove.className='small btn-ghost'; remove.textContent='Excluir';
+    const setScore = document.createElement('button'); setScore.className='small'; setScore.textContent='Setar nota';
+
+    up.onclick = ()=> vote(it.id, +1);
+    down.onclick = ()=> vote(it.id, -1);
+    remove.onclick = ()=> { if(confirm('Excluir item?')) deleteItem(it.id); };
+    edit.onclick = ()=> editItemPrompt(it.id);
+    setScore.onclick = ()=> setScorePrompt(it.id);
+
+    const more = document.createElement('div'); more.style.display='flex'; more.style.flexDirection='column'; more.style.gap='6px';
+    more.appendChild(up); more.appendChild(down);
+
+    controls.appendChild(setScore); controls.appendChild(edit); controls.appendChild(remove);
+
+    // assemble
+    el.appendChild(meta);
+    el.appendChild(scoreEl);
+    el.appendChild(more);
+    el.appendChild(controls);
+
+    // drag events
+    el.addEventListener('dragstart', dragStart);
+    el.addEventListener('dragover', dragOver);
+    el.addEventListener('drop', dropItem);
+    el.addEventListener('dragend', dragEnd);
+
+    rankList.appendChild(el);
+  });
+
+  // repopulate compare selects
+  populateCompareSelects();
+
+  // save state
+  saveState(state);
+}
+
+/* ============ DRAG & DROP FOR CUSTOM ORDER ============ */
+let dragSrcEl = null;
+function dragStart(e){
+  if(sortBy.value !== 'custom'){ e.preventDefault(); return; }
+  dragSrcEl = this;
+  this.style.opacity = '0.5';
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', this.dataset.id);
+}
+function dragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function dropItem(e){
+  e.preventDefault();
+  const srcId = e.dataTransfer.getData('text/plain');
+  const dstId = this.dataset.id;
+  if(!srcId || !dstId || srcId===dstId) return;
+  const items = getItemsForCategory(currentCategoryId).sort((a,b)=> (a.customOrder||0) - (b.customOrder||0));
+  const srcIndex = items.findIndex(i=>i.id===srcId);
+  const dstIndex = items.findIndex(i=>i.id===dstId);
+  if(srcIndex<0 || dstIndex<0) return;
+  // reorder array
+  const [moved] = items.splice(srcIndex,1);
+  items.splice(dstIndex,0,moved);
+  // write back customOrder
+  items.forEach((it,i)=> { const global = state.items.find(s=>s.id===it.id); if(global) global.customOrder = i; });
+  renderMain();
+}
+function dragEnd(){ this.style.opacity='1'; }
+
+/* ============ CRUD & ACTIONS ============ */
+function createCategory(name){
+  if(!name) return alert('Nome da categoria necessário');
+  const id = uid('cat');
+  state.categories.push({ id, name, createdAt: now(), order: state.categories.length });
+  currentCategoryId = id;
+  saveState(state);
+  renderCategories();
+}
+
+function deleteCategory(catId){
+  state.items = state.items.filter(it=> it.cat !== catId);
+  state.categories = state.categories.filter(c=> c.id !== catId);
+  if(state.categories.length) currentCategoryId = state.categories[0].id; else currentCategoryId = null;
+  saveState(state);
+  renderCategories();
+}
+
+function addItem(catId, name, desc='', tags=[]){
+  if(!catId) return alert('Selecione uma categoria');
+  if(!name) return alert('Nome do item necessário');
+  const id = uid('it');
+  const catItems = getItemsForCategory(catId);
+  const customOrder = catItems.length;
+  const it = { id, cat:catId, name, desc, tags: formatTags(tags), score: 5.0, votes: 0, createdAt: now(), customOrder };
+  state.items.push(it);
+  saveState(state);
+  renderMain();
+}
+
+function deleteItem(itemId){
+  state.items = state.items.filter(it=> it.id !== itemId);
+  saveState(state);
+  renderMain();
+}
+
+function vote(itemId, delta){
+  const it = state.items.find(x=>x.id===itemId);
+  if(!it) return;
+  it.votes = (it.votes||0) + (delta>0?1: (it.votes>0?-1:0));
+  // simple scoring: upvote increases score by 0.1, downvote -0.1 (bounded)
+  it.score = Math.max(0, Math.min(10, (it.score || 0) + (delta>0?0.1:-0.1)));
+  saveState(state); renderMain();
+}
+
+function editItemPrompt(itemId){
+  const it = state.items.find(x=>x.id===itemId); if(!it) return;
+  const name = prompt('Nome', it.name); if(name===null) return;
+  const desc = prompt('Descrição', it.desc||''); if(desc===null) return;
+  const tags = prompt('Tags (vírgula)', (it.tags||[]).join(', ')); if(tags===null) return;
+  it.name = name.trim() || it.name;
+  it.desc = desc;
+  it.tags = formatTags(tags.split(','));
+  saveState(state); renderMain();
+}
+
+function setScorePrompt(itemId){
+  const it = state.items.find(x=>x.id===itemId); if(!it) return;
+  const val = prompt('Definir pontuação (0.0 - 10.0)', String(Number(it.score||0).toFixed(1)));
+  if(val===null) return;
+  const n = parseFloat(val.replace(',','.'));
+  if(isNaN(n) || n<0 || n>10) return alert('Valor inválido');
+  it.score = Math.round(n*10)/10;
+  saveState(state); renderMain();
+}
+
+/* ============ IMPORT / EXPORT ============ */
+function exportJSON(){
+  const data = JSON.stringify(state, null, 2);
+  downloadFile('rankings-export.json', data, 'application/json');
+}
+function exportCSV(){
+  // simple CSV: category, item, desc, tags, score, votes, createdAt
+  const lines = [
+    ['category','item','desc','tags','score','votes','createdAt'].join(',')
+  ];
+  state.items.forEach(it=>{
+    const cat = state.categories.find(c=>c.id===it.cat)?.name || '';
+    const row = [cat, escapeCSV(it.name), escapeCSV(it.desc||''), escapeCSV((it.tags||[]).join(';')), it.score||'', it.votes||0, it.createdAt];
+    lines.push(row.join(','));
+  });
+  downloadFile('rankings-export.csv', lines.join('\n'), 'text/csv');
+}
+function escapeCSV(v){ return '"'+String(v||'').replace(/"/g,'""')+'"'; }
+function downloadFile(filename, content, type='text/plain'){
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 3000);
+}
+
+function importFile(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const txt = e.target.result;
+    if(file.name.endsWith('.json')){
+      try{
+        const parsed = JSON.parse(txt);
+        if(parsed.categories && parsed.items){
+          mergeImported(parsed);
+          alert('Importação JSON realizada');
+        } else {
+          alert('JSON com formato inesperado. Deve conter { categories:[], items:[] }');
+        }
+      }catch(err){ alert('JSON inválido'); }
+    } else {
+      // parse CSV basic
+      parseCSV(txt);
+    }
+    renderCategories();
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function mergeImported(parsed){
+  // naive merge: append categories/items with new ids to avoid collisions
+  const idMap = {};
+  parsed.categories.forEach(c=>{
+    const newid = uid('cat');
+    idMap[c.id] = newid;
+    state.categories.push({ id:newid, name:c.name || c.title || 'Categoria importada', createdAt: c.createdAt || now(), order: state.categories.length });
+  });
+  parsed.items.forEach(it=>{
+    const newId = uid('it');
+    const cat = idMap[it.cat] || (state.categories[0]?.id);
+    state.items.push({
+      id:newId, cat,
+      name: it.name || it.title || 'Item importado',
+      desc: it.desc || it.description || '',
+      tags: formatTags(it.tags || (it.tagsString?it.tagsString.split(';'):[])),
+      score: Number(it.score || 0),
+      votes: Number(it.votes || 0),
+      createdAt: it.createdAt || now(),
+      customOrder: (getItemsForCategory(cat).length)
+    });
+  });
+  saveState(state);
+}
+
+function parseCSV(txt){
+  // very simple CSV parser: assumes first row header; fields in quotes allowed
+  const lines = txt.split(/\r?\n/).filter(Boolean);
+  const header = lines.shift().split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
+  const catMap = {};
+  lines.forEach(l=>{
+    const cols = l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c=>c.replace(/^"|"$/g,''));
+    const obj = {};
+    for(let i=0;i<header.length;i++) obj[header[i]] = cols[i] || '';
+    const catName = obj.category || 'Importado';
+    let cat = state.categories.find(c=>c.name === catName);
+    if(!cat){ cat = { id: uid('cat'), name: catName, createdAt: now(), order: state.categories.length }; state.categories.push(cat); }
+    state.items.push({
+      id: uid('it'),
+      cat: cat.id,
+      name: obj.item || obj.title || 'Item CSV',
+      desc: obj.desc || obj.description||'',
+      tags: formatTags((obj.tags || '').split(/;|,/)),
+      score: Number(obj.score) || 0,
+      votes: Number(obj.votes) || 0,
+      createdAt: obj.createdat || now(),
+      customOrder: getItemsForCategory(cat.id).length
+    });
+  });
+  saveState(state);
+}
+
+/* ============ UI HELPERS ============ */
+function populateCompareSelects(){
+  compareA.innerHTML = ''; compareB.innerHTML = '';
+  const items = getItemsForCategory(currentCategoryId);
+  items.forEach(it=>{
+    const o1 = document.createElement('option'); o1.value = it.id; o1.textContent = it.name;
+    const o2 = o1.cloneNode(true);
+    compareA.appendChild(o1); compareB.appendChild(o2);
+  });
+}
+function showCompare(){
+  comparePanel.classList.remove('hidden');
+}
+function hideCompare(){ comparePanel.classList.add('hidden'); }
+function updateCompareDetails(){
+  const a = state.items.find(i=>i.id===compareA.value);
+  const b = state.items.find(i=>i.id===compareB.value);
+  compareADetails.textContent = a ? `Nota: ${Number(a.score||0).toFixed(1)} • ${a.votes||0} votos • ${a.tags?.join(',')||''}` : '';
+  compareBDetails.textContent = b ? `Nota: ${Number(b.score||0).toFixed(1)} • ${b.votes||0} votos • ${b.tags?.join(',')||''}` : '';
+}
+
+/* ============ CHART ============ */
+let chartInstance = null;
+function showChart(){
+  chartPanel.classList.remove('hidden');
+  const items = getItemsForCategory(currentCategoryId).slice().sort((a,b)=> (b.score||0) - (a.score||0)).slice(0,20);
+  const labels = items.map(i=>i.name);
+  const data = items.map(i=> Number(i.score||0));
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(scoreChartCanvas.getContext('2d'), {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Pontuação', data, borderWidth:0 }]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, max:10 } } }
+  });
+}
+function hideChart(){ chartPanel.classList.add('hidden'); if(chartInstance) chartInstance.destroy(); chartInstance = null; }
+
+/* ============ EVENTS ============ */
+createCatBtn.onclick = ()=> { createCategory(catNameInput.value.trim()); catNameInput.value = ''; };
+addItemBtn.onclick = ()=> { addItem(selectCategory.value, itemNameInput.value.trim(), itemDescInput.value.trim(), (itemTagsInput.value||'').split(',')); itemNameInput.value=''; itemDescInput.value=''; itemTagsInput.value=''; };
+selectCategory.onchange = (e)=> { currentCategoryId = e.target.value; renderMain(); };
+sortBy.onchange = renderMain;
+filterTag.oninput = debounce(renderMain, 250);
+searchInput.oninput = debounce(renderMain, 200);
+clearSearch.onclick = ()=>{ searchInput.value=''; renderMain(); };
+compareBtn.onclick = ()=> { showCompare(); };
+closeCompare.onclick = hideCompare;
+compareA.onchange = updateCompareDetails; compareB.onchange = updateCompareDetails;
+showChartBtn.onclick = showChart; closeChart.onclick = hideChart;
+
+importBtn.onclick = ()=> fileInput.click();
+fileInput.onchange = (e)=> { const f = e.target.files[0]; if(!f) return; importFile(f); e.target.value=''; };
+
+exportJsonBtn.onclick = exportJSON;
+exportCsvBtn.onclick = exportCSV;
+clearCategoryBtn.onclick = ()=> {
+  if(!currentCategoryId) return alert('Selecione categoria');
+  if(confirm('Apagar todos os itens da categoria?')) {
+    state.items = state.items.filter(it=> it.cat !== currentCategoryId);
+    saveState(state); renderMain();
+  }
+};
+clearAllBtn.onclick = ()=> { if(confirm('Apagar TODAS as categorias e itens do armazenamento local?')){ localStorage.removeItem(STORAGE_KEY); state={categories:[],items:[]}; renderCategories(); } };
+
+bulkAddBtn.onclick = ()=> {
+  const csv = prompt('Cole CSV (nome,desc,tags separados por vírgula) — cada linha é um item (ou cancele)');
+  if(!csv) return;
+  const lines = csv.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  lines.forEach(line=>{
+    const parts = line.split(',');
+    addItem(currentCategoryId, parts[0]||'Item', parts[1]||'', (parts[2]||'').split(';'));
+  });
+  renderMain();
+};
+
+/* keyboard shortcuts */
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'n' || e.key === 'N'){ catNameInput.focus(); }
+  if(e.key === 'i' || e.key === 'I'){ itemNameInput.focus(); }
+});
+
+/* ============ UTIL: DEBOUNCE ============ */
+function debounce(fn, wait=200){ let t; return function(...a){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,a), wait); }; }
+
+/* ============ BOOT ============ */
+function boot(){
+  // ensure minimal shape
+  state.categories = state.categories || [];
+  state.items = state.items || [];
+  // set initial current category
+  if(!currentCategoryId && state.categories[0]) currentCategoryId = state.categories[0].id;
+  renderCategories();
+}
+boot();
+
+</script>
+</body>
+</html>
