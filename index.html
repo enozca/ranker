@@ -3,232 +3,204 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Ranker — Rankings para tudo</title>
+<title>Ranker — Rankings Visuais</title>
 
 <!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
   :root{
-    --bg:#0f1724; --card:#151f30; --muted:#94a3b8; --accent:#7c3aed; --glass: rgba(255,255,255,0.03);
-    --success:#10b981; --danger:#ef4444; --radius:12px;
-    font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --bg-start: #020617;
+    --bg-end: #131b34;
+    --card: rgba(21, 28, 51, 0.5);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --muted: #8c97b3;
+    --text: #e2e8f0;
+    --accent: #8b5cf6;
+    --accent-rgb: 139, 92, 246;
+    --secondary: #22d3ee;
+    --secondary-rgb: 34, 211, 238;
+    --danger: #f43f5e;
+    --radius: 12px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color-scheme: dark;
   }
+  @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
   *{box-sizing:border-box}
   body{
-    margin:0; min-height:100vh; background:linear-gradient(180deg,#071028 0%, #071525 100%); color:#e6eef8;
+    margin:0; min-height:100vh;
+    background-color: var(--bg-start);
+    background-image: radial-gradient(circle at 1% 1%, var(--accent), transparent 30%), radial-gradient(circle at 99% 99%, var(--secondary), transparent 35%);
+    background-attachment: fixed;
+    color: var(--text);
     padding:16px; font-size:14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   header{display:flex; flex-direction: column; gap:4px; align-items:center; text-align:center; margin-bottom:24px;}
-  h1{margin:0;font-size:24px; color: #fff;}
-  .container{display:grid;grid-template-columns:320px 1fr;gap:16px;}
-  .panel{background:linear-gradient(180deg,var(--card), rgba(11,18,32,0.8)); padding:16px;border-radius:var(--radius); box-shadow: 0 6px 20px rgba(2,6,23,0.6);}
+  h1{
+    margin:0;font-size:2.25rem;
+    font-weight: 800;
+    background: linear-gradient(45deg, var(--text), var(--muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .container{display:grid;grid-template-columns:320px 1fr;gap:20px;}
+  .panel{
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    padding:16px;
+    border-radius:var(--radius);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
   .sidebar .section{margin-bottom:16px}
   label{display:block;color:var(--muted); font-size:12px;margin-bottom:6px; font-weight: 500;}
   input, textarea, select {
-    width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);
-    background:rgba(255,255,255,0.03); color:inherit; font-size: 14px;
+    width:100%; padding:10px 12px; border-radius:8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background:rgba(0,0,0,0.2); color:inherit; font-size: 14px;
+    transition: all 0.2s ease;
   }
-  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  button{cursor:pointer;padding:10px 14px;border-radius:8px;border:0;background:var(--accent); color:white; font-weight: 600; transition: background-color 0.2s;}
-  button:hover { background-color: #6d28d9; }
-  .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.1)}
-  .btn-ghost:hover{background:var(--glass)}
-  .btn-danger{background:var(--danger)}
-  .btn-danger:hover{background:#d92626}
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3); }
+  
+  button{
+    cursor:pointer; padding:10px 14px; border-radius:8px; border:0;
+    font-weight: 600; transition: all 0.2s ease;
+    background: linear-gradient(45deg, var(--accent), #a855f7);
+    color: white;
+    box-shadow: 0 4px 15px -5px rgba(var(--accent-rgb), 0.5);
+  }
+  button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px -5px rgba(var(--accent-rgb), 0.7); }
+  .btn-ghost{
+    background: transparent; border:1px solid var(--card-border); color: var(--muted); box-shadow: none;
+  }
+  .btn-ghost:hover{ background: rgba(255,255,255,0.05); border-color: var(--accent); color: var(--text); }
+  .btn-danger{ background: var(--danger); box-shadow: 0 4px 15px -5px rgba(244, 63, 94, 0.5); }
+  .btn-danger:hover{ background:#f43f5e; box-shadow: 0 6px 20px -5px rgba(244, 63, 94, 0.7); }
+  
   .muted{color:var(--muted);font-size:13px}
   
-  .rank-list{display:flex;flex-direction:column;gap:10px; margin-top:16px}
+  /* Rank List & Items */
+  .rank-list{display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 16px;}
   .item{
-    display:grid; grid-template-columns: auto 1fr auto; grid-template-areas: "drag meta score" "drag meta controls";
-    align-items:center; gap:8px 12px; padding:12px; border-radius:10px;
-    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
-    border:1px solid rgba(255,255,255,0.04); transition: background-color 0.2s;
+    display: flex; flex-direction: column;
+    border-radius: var(--radius);
+    background: rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.05);
+    transition: all 0.2s ease-in-out;
+    animation: slideInUp 0.5s ease-out forwards;
+    opacity: 0; animation-delay: calc(var(--i, 0) * 50ms);
+    overflow: hidden;
   }
-  .item:hover { background-color: var(--glass); }
-  .item .meta{ grid-area: meta; display:flex;flex-direction:column; gap: 6px; }
-  .item .name { font-weight: 600; color: #fff; }
-  .item .desc { font-size: 12px; color: var(--muted); }
-  .score{ grid-area: score; text-align:right; font-weight:700}
-  .controls{ grid-area: controls; display:flex;gap:6px; align-items:center; justify-self: end;}
-  .tags{display:flex;gap:6px;flex-wrap:wrap}
-  .tag{background:var(--glass); padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+  .item:hover { transform: translateY(-4px); background: rgba(255,255,255,0.05); border-color: rgba(var(--accent-rgb), 0.5); box-shadow: 0 8px 24px rgba(0,0,0,0.3);}
   
-  .topbar{display:flex; flex-direction: column; gap:16px; margin-bottom:16px;}
-  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .toolbar-group { display: flex; align-items: center; gap: 8px; }
-  .search{display:flex;gap:8px;align-items:center; width: 100%;}
-  .search input { flex: 1; }
+  .item-banner {
+    width: 100%; height: 140px; background-size: cover; background-position: center;
+    background-color: rgba(255,255,255,0.05); position: relative;
+  }
+  .item-banner::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(21, 28, 51, 0.9) 0%, rgba(21, 28, 51, 0) 70%);
+  }
   
-  .flex{display:flex;gap:8px;align-items:center}
-  .small{font-size:12px;padding:6px 8px}
-  .compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-  footer{margin-top:16px;color:var(--muted); font-size:13px; text-align: center;}
-  
-  .drag-handle{ grid-area: drag; cursor:grab; user-select:none; opacity:0.6; padding-right: 8px;}
-  .drag-handle:active{cursor:grabbing}
-  .hidden{display:none !important}
-  
-  .chart-wrap{padding:8px;background:transparent;border-radius:8px}
-  .list-header{display:flex;justify-content:space-between;align-items:center; flex-wrap: wrap; gap: 8px;}
-  .empty-state{ text-align:center; padding: 40px 20px; color: var(--muted); border: 2px dashed rgba(255,255,255,0.05); border-radius: var(--radius); margin-top: 20px;}
-  .empty-state h3 { margin: 0 0 8px 0; color: #fff; }
+  .item-content { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+  .item-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .item .name { font-weight: 600; color: var(--text); font-size: 16px; line-height: 1.3; }
+  .score-wrapper { text-align: right; }
+  .score{
+    font-weight:800; font-size: 24px;
+    background: linear-gradient(45deg, var(--secondary), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .score-votes { color: var(--muted); font-size: 11px; }
+  .item .desc { font-size: 13px; color: var(--muted); flex-grow: 1;}
+  .item-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+  .tags{display:flex;gap:4px;flex-wrap:wrap;}
+  .tag{
+    background: rgba(var(--secondary-rgb), 0.1); color: var(--secondary);
+    border: 1px solid rgba(var(--secondary-rgb), 0.2);
+    padding:3px 8px; border-radius:999px;font-size:11px; font-weight: 500;
+  }
+  .controls { display: flex; align-items: center; }
+  .controls button { background: none; box-shadow: none; padding: 4px; color: var(--muted); }
+  .controls button:hover { background: rgba(var(--accent-rgb), 0.1); color: var(--accent); transform: scale(1.1); }
+  .controls svg { width: 16px; height: 16px; }
 
-  /* Edit Form Styles */
-  .edit-form { padding: 10px; background: rgba(0,0,0,0.1); border-radius: 8px; }
+  /* Edit Form */
+  .edit-form { padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; }
   .edit-form .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .edit-form label { margin-top: 8px; }
 
-  /* Toast Notification */
+  /* General Layout */
+  .list-header{ padding-bottom: 8px; border-bottom: 1px solid var(--card-border); display:flex;justify-content:space-between;align-items:center; flex-wrap: wrap; gap: 8px;}
+  #categoryTitle { font-size: 20px; font-weight: 700; }
+  .categories-list a { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; text-decoration: none; color: var(--muted); transition: all 0.2s ease; }
+  .categories-list a:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .categories-list a.active { background: rgba(var(--accent-rgb), 0.15); color: var(--accent); font-weight: 600; }
+  .categories-list a .delete-cat { display: none; }
+  .categories-list a:hover .delete-cat { display: block; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--accent); color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; opacity: 0; transition: opacity 0.3s, bottom 0.3s; font-size: 14px; }
   .toast.show { bottom: 30px; opacity: 1; }
-  .toast.success { background-color: var(--success); }
-  .toast.danger { background-color: var(--danger); }
 
-  /* Mobile-first Responsiveness */
   @media (max-width:900px){
     body { padding: 8px; }
     .container{grid-template-columns:1fr}
-    .sidebar{order:2} /* Sidebar goes to bottom */
-    .sidebar-toggle { display: block; }
-    .sidebar-content { padding-top: 16px; }
-    header { margin-bottom: 16px; }
-    h1 { font-size: 20px; }
-    .item { grid-template-columns: 1fr auto; grid-template-areas: "meta score" "meta controls"; gap: 8px; }
-    .drag-handle { display: none; } /* Hide drag handle on mobile where drag is harder */
-  }
-  @media (min-width: 600px) {
-    .topbar { flex-direction: row; justify-content: space-between; align-items: center; }
-    .search { width: auto; }
-  }
-  @media (min-width: 901px) {
-    .sidebar-toggle { display: none; }
+    .sidebar{order:2}
+    .rank-list{grid-template-columns: 1fr;}
   }
 </style>
 </head>
 <body>
 <header>
   <h1>Ranker</h1>
-  <div class="muted">Crie, compare e compartilhe rankings de qualquer coisa. Salvo localmente.</div>
+  <div class="muted">Crie, compare e compartilhe rankings de qualquer coisa.</div>
 </header>
 
 <div class="container">
-  <!-- SIDEBAR: Categorias & criação -->
   <aside class="sidebar panel">
-    <details class="sidebar-toggle" open>
-      <summary style="cursor:pointer; font-weight:600;">Ferramentas e Categorias</summary>
-      <div class="sidebar-content">
-        <div class="section">
-          <label for="catName">Nova categoria</label>
-          <input id="catName" placeholder="Ex: Filmes, RPG, Pratos..." />
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button id="createCatBtn">Criar</button>
-            <button id="importBtn" class="btn-ghost small">Importar JSON/CSV</button>
-          </div>
-        </div>
-
-        <div class="section">
-          <label>Categorias</label>
-          <div id="categoriesList" class="muted">Carregando...</div>
-        </div>
-
-        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:16px 0" />
-
-        <div class="section">
-          <label for="itemName">Adicionar item</label>
-          <input id="itemName" placeholder="Nome do item (ex: O Poderoso Chefão)" />
-          <label for="itemDesc" style="margin-top:6px">Descrição (opcional)</label>
-          <textarea id="itemDesc" rows="2" placeholder="Breve descrição"></textarea>
-          <label style="margin-top:6px">Tags (separadas por vírgula)</label>
-          <input id="itemTags" placeholder="ex: clássico, drama" />
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button id="addItemBtn">Adicionar</button>
-            <button id="bulkAddBtn" class="btn-ghost small">Adicionar em massa</button>
-          </div>
-        </div>
-
-        <div class="section">
-          <label>Exportar / Limpar</label>
-          <div style="display:flex;gap:8px">
-            <button id="exportJsonBtn" class="small btn-ghost">Exportar JSON</button>
-            <button id="exportCsvBtn" class="small btn-ghost">Exportar CSV</button>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button id="clearCategoryBtn" class="btn-ghost small">Limpar categoria</button>
-            <button id="clearAllBtn" class="btn-danger small">Apagar tudo</button>
-          </div>
+      <div class="section">
+        <label for="catName">Nova categoria</label>
+        <input id="catName" placeholder="Ex: Filmes, Animes, Pratos..." />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="createCatBtn">Criar</button>
+          <button id="importBtn" class="btn-ghost small">Importar</button>
         </div>
       </div>
-    </details>
-    <footer class="muted">Atalhos: <strong>N</strong> Nova categoria • <strong>I</strong> Novo item</footer>
+      <div class="section">
+        <label>Categorias</label>
+        <div id="categoriesList" class="categories-list">Carregando...</div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--card-border);margin:16px 0" />
+      <div class="section">
+        <label for="itemName">Adicionar item</label>
+        <input id="itemName" placeholder="Nome do item" />
+        <label for="itemImageUrl" style="margin-top:6px">URL da Imagem (opcional)</label>
+        <input id="itemImageUrl" placeholder="https://exemplo.com/imagem.jpg" />
+        <label for="itemDesc" style="margin-top:6px">Descrição (opcional)</label>
+        <textarea id="itemDesc" rows="2" placeholder="Breve descrição"></textarea>
+        <label style="margin-top:6px">Tags (separadas por vírgula)</label>
+        <input id="itemTags" placeholder="ex: clássico, drama" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="addItemBtn">Adicionar</button>
+        </div>
+      </div>
   </aside>
 
-  <!-- MAIN -->
   <main class="panel">
-    <div class="topbar">
-      <div class="toolbar">
-        <div class="toolbar-group">
-          <label class="muted" for="selectCategory">Categoria</label>
-          <select id="selectCategory" aria-label="Selecionar categoria"></select>
-        </div>
-        <div class="toolbar-group">
-          <label class="muted" for="sortBy">Ordenar por</label>
-          <select id="sortBy">
-            <option value="score-desc">Pontuação (maior)</option>
-            <option value="score-asc">Pontuação (menor)</option>
-            <option value="name-asc">Nome A→Z</option>
-            <option value="name-desc">Nome Z→A</option>
-            <option value="date-desc">Adicionados (recentes)</option>
-            <option value="custom">Manual (drag & drop)</option>
-          </select>
-        </div>
-        <div class="toolbar-group">
-          <label class="muted" for="filterTag">Filtrar por tag</label>
-          <input id="filterTag" placeholder="digite uma tag" style="width:160px" />
-        </div>
-      </div>
-
-      <div class="search">
-        <input id="searchInput" placeholder="Pesquisar itens..." aria-label="Pesquisar itens" />
-        <button id="clearSearch" class="btn-ghost small" aria-label="Limpar pesquisa">×</button>
-      </div>
-    </div>
-
     <div class="list-header">
       <div>
-        <strong id="categoryTitle" style="font-size: 18px;">—</strong>
+        <strong id="categoryTitle">—</strong>
         <div class="muted" id="categoryCount">0 itens</div>
       </div>
-
       <div class="flex">
-        <button id="compareBtn" class="small btn-ghost">Comparar</button>
-        <button id="showChartBtn" class="small btn-ghost">Ver gráfico</button>
+        <button id="showChartBtn" class="small btn-ghost">Gráfico</button>
       </div>
     </div>
-
     <div id="mainContent">
       <div id="rankList" class="rank-list" aria-live="polite"></div>
-
-      <div id="comparePanel" class="panel hidden" style="margin-top:16px;">
-        <h3>Comparar itens</h3>
-        <div class="compare">
-          <div>
-            <label for="compareA">Item A</label>
-            <select id="compareA"></select>
-            <div id="compareADetails" class="muted small"></div>
-          </div>
-          <div>
-            <label for="compareB">Item B</label>
-            <select id="compareB"></select>
-            <div id="compareBDetails" class="muted small"></div>
-          </div>
-        </div>
-        <div style="margin-top:10px">
-          <button id="closeCompare" class="small btn-ghost">Fechar</button>
-        </div>
-      </div>
-
       <div id="chartPanel" class="panel hidden" style="margin-top:16px;">
         <h3>Gráfico de pontuações</h3>
         <div class="chart-wrap"><canvas id="scoreChart" height="120"></canvas></div>
@@ -238,27 +210,21 @@
   </main>
 </div>
 
-<!-- Hidden file input for import -->
 <input id="fileInput" type="file" accept=".json,.csv,text/csv" class="hidden" />
 <div id="toast-container"></div>
 
 <script>
 'use strict';
-/* ============ STORAGE KEYS & UTIL ============ */
-const STORAGE_KEY = 'ranker-data-v2';
-
+const STORAGE_KEY = 'ranker-data-v3';
 const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => document.querySelectorAll(selector);
-
 const Util = {
   uid: (prefix = 'id') => prefix + '_' + Math.random().toString(36).slice(2, 9),
   now: () => new Date().toISOString(),
-  escapeHTML: (str) => str.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]),
-  debounce: (fn, wait = 200) => { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), wait); }; },
-  showToast: (message, type = 'success', duration = 3000) => {
+  escapeHTML: (str) => String(str).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]),
+  showToast: (message, duration = 3000) => {
     const container = $('#toast-container');
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = `toast`;
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => { toast.classList.add('show'); }, 10);
@@ -269,48 +235,28 @@ const Util = {
   }
 };
 
-/* ============ DEFAULT SAMPLE DATA ============ */
 const sample = {
-  categories: [
-    { id: 'cat_movies', name: 'Filmes', createdAt: Util.now(), order: 0 },
-    { id: 'cat_food', name: 'Pratos', createdAt: Util.now(), order: 1 }
-  ],
+  categories: [{ id: 'cat_movies', name: 'Filmes', createdAt: Util.now(), order: 0 }],
   items: [
-    { id: Util.uid('it'), cat: 'cat_movies', name: 'O Poderoso Chefão', desc:'Clássico de máfia', tags:['clássico','drama'], score:9.6, votes:1200, createdAt: Util.now(), customOrder:0 },
-    { id: Util.uid('it'), cat: 'cat_movies', name: 'Clube da Luta', desc:'Cult movie', tags:['cult','drama'], score:9.0, votes:900, createdAt: Util.now(), customOrder:1 },
-    { id: Util.uid('it'), cat: 'cat_food', name: 'Pizza Margherita', desc:'Simples e deliciosa', tags:['italiano','massa'], score:8.5, votes:300, createdAt: Util.now(), customOrder:0 },
+    { id: Util.uid('it'), cat: 'cat_movies', name: 'Blade Runner 2049', imageUrl: 'https://images.unsplash.com/photo-1588532902250-df0124aa3f83?w=500&q=80', desc:'Um novo blade runner descobre um segredo que ameaça a sociedade.', tags:['sci-fi','cult'], score:9.8, votes:1500, createdAt: Util.now(), customOrder:0 },
+    { id: Util.uid('it'), cat: 'cat_movies', name: 'Interestelar', imageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&q=80', desc:'Uma equipe de exploradores viaja através de um buraco de minhoca.', tags:['sci-fi','épico'], score:9.5, votes:1200, createdAt: Util.now(), customOrder:1 },
   ]
 };
 
-/* ============ APP STATE ============ */
 let state = { categories: [], items: [] };
 let currentCategoryId = null;
-let currentSort = 'score-desc';
-let editingItemId = null; // ID of item being edited
+let editingItemId = null;
 let chartInstance = null;
 
-/* ============ DOM REFERENCES ============ */
 const DOM = {
-  selectCategory: $('#selectCategory'), categoriesList: $('#categoriesList'),
-  categoryTitle: $('#categoryTitle'), categoryCount: $('#categoryCount'),
+  categoriesList: $('#categoriesList'), categoryTitle: $('#categoryTitle'), categoryCount: $('#categoryCount'),
   rankList: $('#rankList'),
   createCatBtn: $('#createCatBtn'), catNameInput: $('#catName'),
-  itemNameInput: $('#itemName'), itemDescInput: $('#itemDesc'), itemTagsInput: $('#itemTags'),
+  itemNameInput: $('#itemName'), itemImageUrlInput: $('#itemImageUrl'), itemDescInput: $('#itemDesc'), itemTagsInput: $('#itemTags'),
   addItemBtn: $('#addItemBtn'),
-  sortBy: $('#sortBy'), filterTag: $('#filterTag'),
-  searchInput: $('#searchInput'), clearSearch: $('#clearSearch'),
-  compareBtn: $('#compareBtn'), comparePanel: $('#comparePanel'), compareA: $('#compareA'),
-  compareB: $('#compareB'), compareADetails: $('#compareADetails'), compareBDetails: $('#compareBDetails'),
-  closeCompare: $('#closeCompare'),
-  showChartBtn: $('#showChartBtn'), chartPanel: $('#chartPanel'), scoreChartCanvas: $('#scoreChart'),
-  closeChart: $('#closeChart'),
-  fileInput: $('#fileInput'), importBtn: $('#importBtn'),
-  exportJsonBtn: $('#exportJsonBtn'), exportCsvBtn: $('#exportCsvBtn'),
-  clearCategoryBtn: $('#clearCategoryBtn'), clearAllBtn: $('#clearAllBtn'),
-  bulkAddBtn: $('#bulkAddBtn'),
+  showChartBtn: $('#showChartBtn'), chartPanel: $('#chartPanel'), scoreChartCanvas: $('#scoreChart'), closeChart: $('#closeChart'),
 };
 
-/* ============ STATE MANAGEMENT ============ */
 const AppState = {
   save: () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) { console.error("Failed to save state:", e); } },
   load: () => {
@@ -319,6 +265,7 @@ const AppState = {
       const loadedState = raw ? JSON.parse(raw) : sample;
       state.categories = loadedState.categories || [];
       state.items = loadedState.items || [];
+      state.items.forEach(it => { if (it.imageUrl === undefined) it.imageUrl = ''; });
     } catch (e) {
       console.error('Failed to load state, using sample data.', e);
       state = sample;
@@ -326,145 +273,9 @@ const AppState = {
   }
 };
 
-/* ============ RENDERING ============ */
-function renderCategories() {
-  DOM.selectCategory.innerHTML = '';
-  DOM.categoriesList.innerHTML = '';
-  state.categories.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-  state.categories.forEach(cat => {
-    const opt = document.createElement('option');
-    opt.value = cat.id;
-    opt.textContent = cat.name;
-    DOM.selectCategory.appendChild(opt);
-
-    const el = document.createElement('div');
-    el.className = 'flex';
-    el.style.justifyContent = 'space-between';
-    el.innerHTML = `
-      <span>${Util.escapeHTML(cat.name)}</span>
-      <button class="btn-ghost small" data-action="delete-category" data-id="${cat.id}" aria-label="Excluir categoria ${Util.escapeHTML(cat.name)}">Excluir</button>`;
-    DOM.categoriesList.appendChild(el);
-  });
-
-  if (!state.categories.length) {
-    DOM.categoriesList.innerHTML = '<div class="muted">Nenhuma categoria. Crie uma!</div>';
-    DOM.selectCategory.innerHTML = '<option value="">— sem categorias —</option>';
-    currentCategoryId = null;
-  }
-  
-  if (!currentCategoryId && state.categories[0]) {
-    currentCategoryId = state.categories[0].id;
-  }
-  
-  DOM.selectCategory.value = currentCategoryId;
-  renderMain();
-}
-
-function createItemHTML(item) {
-  if (editingItemId === item.id) {
-    return `
-      <div class="item edit-form">
-        <div class="form-grid">
-          <div><label for="edit-name-${item.id}">Nome</label><input type="text" id="edit-name-${item.id}" value="${Util.escapeHTML(item.name)}"></div>
-          <div><label for="edit-score-${item.id}">Pontuação</label><input type="number" step="0.1" min="0" max="10" id="edit-score-${item.id}" value="${Number(item.score || 0).toFixed(1)}"></div>
-        </div>
-        <div><label for="edit-desc-${item.id}">Descrição</label><textarea id="edit-desc-${item.id}" rows="2">${Util.escapeHTML(item.desc || '')}</textarea></div>
-        <div><label for="edit-tags-${item.id}">Tags</label><input type="text" id="edit-tags-${item.id}" value="${Util.escapeHTML((item.tags || []).join(', '))}"></div>
-        <div class="flex" style="margin-top:10px; justify-content: flex-end;">
-          <button class="small btn-ghost" data-action="cancel-edit">Cancelar</button>
-          <button class="small" data-action="save-edit" data-id="${item.id}">Salvar</button>
-        </div>
-      </div>`;
-  }
-
-  const tagsHTML = (item.tags || []).map(t => `<span class="tag">${Util.escapeHTML(t)}</span>`).join('');
-  return `
-    <div class="item" draggable="true" data-id="${item.id}">
-      <div class="drag-handle" title="Arraste para reordenar (modo Manual)">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
-      </div>
-      <div class="meta">
-        <div><span class="name">${Util.escapeHTML(item.name)}</span></div>
-        <div class="desc">${Util.escapeHTML(item.desc || '')}</div>
-        <div class="tags">${tagsHTML}</div>
-      </div>
-      <div class="score">
-        <div style="font-size:18px">${Number(item.score || 0).toFixed(1)}</div>
-        <div class="muted small">(${item.votes || 0} votos)</div>
-      </div>
-      <div class="controls">
-        <button class="small btn-ghost" data-action="vote-up" data-id="${item.id}" aria-label="Voto positivo para ${Util.escapeHTML(item.name)}">▲</button>
-        <button class="small btn-ghost" data-action="vote-down" data-id="${item.id}" aria-label="Voto negativo para ${Util.escapeHTML(item.name)}">▼</button>
-        <button class="small btn-ghost" data-action="edit" data-id="${item.id}">Editar</button>
-        <button class="small btn-ghost" data-action="delete" data-id="${item.id}">Excluir</button>
-      </div>
-    </div>`;
-}
-
-function renderMain() {
-  if (!currentCategoryId) {
-    DOM.categoryTitle.textContent = 'Nenhuma categoria';
-    DOM.categoryCount.textContent = '0 itens';
-    DOM.rankList.innerHTML = `<div class="empty-state"><h3>Sem categoria selecionada</h3><p>Crie ou selecione uma categoria na barra lateral para começar.</p></div>`;
-    return;
-  }
-  const cat = state.categories.find(c => c.id === currentCategoryId);
-  DOM.categoryTitle.textContent = cat?.name || '—';
-  
-  let items = App.getItemsForCategory(currentCategoryId);
-
-  const q = DOM.searchInput.value.trim().toLowerCase();
-  if (q) items = items.filter(it => (it.name + ' ' + (it.desc || '') + ' ' + (it.tags || []).join(' ')).toLowerCase().includes(q));
-  const t = DOM.filterTag.value.trim().toLowerCase();
-  if (t) items = items.filter(it => (it.tags || []).some(tag => tag.toLowerCase().includes(t)));
-  
-  currentSort = DOM.sortBy.value;
-  if (currentSort === 'score-desc') items.sort((a,b)=> (b.score||0) - (a.score||0));
-  else if (currentSort === 'score-asc') items.sort((a,b)=> (a.score||0) - (b.score||0));
-  else if (currentSort === 'name-asc') items.sort((a,b)=> a.name.localeCompare(b.name));
-  else if (currentSort === 'name-desc') items.sort((a,b)=> b.name.localeCompare(a.name));
-  else if (currentSort === 'date-desc') items.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
-  else if (currentSort === 'custom') items.sort((a,b)=> (a.customOrder||0) - (b.customOrder||0));
-
-  DOM.categoryCount.textContent = `${items.length} itens`;
-  
-  if (items.length === 0) {
-    DOM.rankList.innerHTML = `<div class="empty-state"><h3>Categoria Vazia</h3><p>Adicione um item para começar a ranquear!</p></div>`;
-  } else {
-    DOM.rankList.innerHTML = items.map(createItemHTML).join('');
-  }
-  
-  UI.populateCompareSelects();
-  AppState.save();
-}
-
-/* ============ DRAG & DROP FOR CUSTOM ORDER ============ */
-let dragSrcEl = null;
-function handleDragStart(e) {
-  if (DOM.sortBy.value !== 'custom') { e.preventDefault(); return; }
-  dragSrcEl = e.target;
-  dragSrcEl.style.opacity = '0.5';
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', dragSrcEl.dataset.id);
-}
-function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
-function handleDrop(e) {
-  e.preventDefault();
-  const targetEl = e.target.closest('.item');
-  if (!dragSrcEl || !targetEl || dragSrcEl === targetEl) return;
-  const srcId = e.dataTransfer.getData('text/plain');
-  const dstId = targetEl.dataset.id;
-  App.reorderItem(srcId, dstId);
-  renderMain();
-}
-function handleDragEnd(e) { e.target.style.opacity = '1'; }
-
-
-/* ============ APP LOGIC / ACTIONS ============ */
 const App = {
   createCategory(name) {
-    if (!name) return Util.showToast('Nome da categoria necessário', 'danger');
+    if (!name) return Util.showToast('Nome da categoria necessário');
     const id = Util.uid('cat');
     state.categories.push({ id, name, createdAt: Util.now(), order: state.categories.length });
     currentCategoryId = id;
@@ -474,24 +285,17 @@ const App = {
   deleteCategory(catId) {
     state.items = state.items.filter(it => it.cat !== catId);
     state.categories = state.categories.filter(c => c.id !== catId);
-    if (state.categories.length) currentCategoryId = state.categories[0].id;
-    else currentCategoryId = null;
+    currentCategoryId = state.categories.length ? state.categories[0].id : null;
     renderCategories();
-    Util.showToast('Categoria excluída', 'danger');
+    Util.showToast('Categoria excluída');
   },
-  addItem(catId, name, desc = '', tags = []) {
-    if (!catId) return Util.showToast('Selecione uma categoria', 'danger');
-    if (!name) return Util.showToast('Nome do item necessário', 'danger');
-    const catItems = this.getItemsForCategory(catId);
-    const item = { id: Util.uid('it'), cat: catId, name, desc, tags: App.formatTags(tags), score: 5.0, votes: 0, createdAt: Util.now(), customOrder: catItems.length };
+  addItem(catId, name, imageUrl, desc, tags) {
+    if (!catId) return Util.showToast('Selecione uma categoria');
+    if (!name) return Util.showToast('Nome do item necessário');
+    const item = { id: Util.uid('it'), cat: catId, name, imageUrl, desc, tags: App.formatTags(tags), score: 5.0, votes: 0, createdAt: Util.now(), customOrder: App.getItemsForCategory(catId).length };
     state.items.push(item);
     renderMain();
     Util.showToast(`Item "${name}" adicionado.`);
-  },
-  deleteItem(itemId) {
-    state.items = state.items.filter(it => it.id !== itemId);
-    renderMain();
-    Util.showToast('Item excluído', 'danger');
   },
   updateItem(itemId, data) {
     const item = state.items.find(it => it.id === itemId);
@@ -501,6 +305,11 @@ const App = {
     renderMain();
     Util.showToast('Item atualizado.');
   },
+  deleteItem(itemId) {
+    state.items = state.items.filter(it => it.id !== itemId);
+    renderMain();
+    Util.showToast('Item excluído');
+  },
   vote(itemId, delta) {
     const item = state.items.find(x => x.id === itemId);
     if (!item) return;
@@ -508,144 +317,94 @@ const App = {
     item.score = Math.max(0, Math.min(10, (item.score || 0) + (delta > 0 ? 0.1 : -0.1)));
     renderMain();
   },
-  reorderItem(srcId, dstId) {
-    const items = this.getItemsForCategory(currentCategoryId).sort((a,b)=> (a.customOrder||0) - (b.customOrder||0));
-    const srcIndex = items.findIndex(i=>i.id===srcId);
-    const dstIndex = items.findIndex(i=>i.id===dstId);
-    if (srcIndex < 0 || dstIndex < 0) return;
-    const [moved] = items.splice(srcIndex, 1);
-    items.splice(dstIndex, 0, moved);
-    items.forEach((it, i) => { const global = state.items.find(s => s.id === it.id); if (global) global.customOrder = i; });
-  },
   getItemsForCategory: (catId) => state.items.filter(it => it.cat === catId),
   formatTags: (tags) => (Array.isArray(tags) ? tags : String(tags).split(',')).map(t => t.trim()).filter(Boolean),
-  importFile(file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const txt = e.target.result;
-      try {
-        if (file.name.endsWith('.json')) {
-          const parsed = JSON.parse(txt);
-          if(parsed.categories && parsed.items) App.mergeImported(parsed);
-          else throw new Error('Formato JSON inesperado');
-        } else if (file.name.endsWith('.csv')) {
-          App.parseCSV(txt);
-        }
-        Util.showToast('Arquivo importado com sucesso!');
-      } catch (err) {
-        console.error("Import error:", err);
-        Util.showToast(`Falha na importação: ${err.message}`, 'danger');
-      } finally {
-        renderCategories();
-      }
-    };
-    reader.readAsText(file, 'utf-8');
-  },
-  mergeImported(parsed) {
-    const idMap = {};
-    parsed.categories.forEach(c => {
-      const newid = Util.uid('cat');
-      idMap[c.id] = newid;
-      state.categories.push({ id: newid, name: c.name || 'Importado', createdAt: c.createdAt || Util.now(), order: state.categories.length });
-    });
-    parsed.items.forEach(it => {
-      const cat = idMap[it.cat] || (state.categories[0]?.id);
-      if (!cat) return;
-      state.items.push({ id: Util.uid('it'), cat, name: it.name || 'Item importado', desc: it.desc || '', tags: App.formatTags(it.tags || []), score: Number(it.score || 0), votes: Number(it.votes || 0), createdAt: it.createdAt || Util.now(), customOrder: App.getItemsForCategory(cat).length });
-    });
-  },
-  parseCSV(txt) {
-    const lines = txt.split(/\r?\n/).filter(Boolean);
-    const header = lines.shift().toLowerCase().split(',');
-    lines.forEach(line => {
-      const values = line.split(',');
-      const obj = header.reduce((acc, h, i) => ({ ...acc, [h.trim()]: values[i] || '' }), {});
-      let cat = state.categories.find(c => c.name === obj.category);
-      if (!cat) {
-        cat = { id: Util.uid('cat'), name: obj.category || 'Importado CSV', createdAt: Util.now(), order: state.categories.length };
-        state.categories.push(cat);
-      }
-      App.addItem(cat.id, obj.item || 'Item CSV', obj.desc, obj.tags.split(';'));
-    });
-  },
-  export(type) {
-    const escapeCSV = (v) => '"' + String(v || '').replace(/"/g, '""') + '"';
-    const download = (filename, content, mime) => {
-      const blob = new Blob([content], { type: mime });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
+};
 
-    if (type === 'json') {
-      download('ranker-export.json', JSON.stringify(state, null, 2), 'application/json');
-    } else if (type === 'csv') {
-      const lines = [['category', 'item', 'desc', 'tags', 'score', 'votes', 'createdAt'].join(',')];
-      state.items.forEach(it => {
-        const catName = state.categories.find(c => c.id === it.cat)?.name || '';
-        lines.push([catName, it.name, it.desc, (it.tags || []).join(';'), it.score, it.votes, it.createdAt].map(escapeCSV).join(','));
-      });
-      download('ranker-export.csv', lines.join('\n'), 'text/csv');
-    }
-    Util.showToast(`Exportado como ${type.toUpperCase()}`);
+function renderCategories() {
+  DOM.categoriesList.innerHTML = '';
+  state.categories.sort((a, b) => (a.order || 0) - (b.order || 0));
+  state.categories.forEach(cat => {
+    const el = document.createElement('a');
+    el.href = '#';
+    el.className = `category-link ${cat.id === currentCategoryId ? 'active' : ''}`;
+    el.dataset.id = cat.id;
+    el.innerHTML = `<span>${Util.escapeHTML(cat.name)}</span><button class="delete-cat btn-ghost" data-action="delete-category" data-id="${cat.id}" aria-label="Excluir">&times;</button>`;
+    el.onclick = (e) => { e.preventDefault(); if(e.target.dataset.action === 'delete-category') { if(confirm('Excluir categoria?')) App.deleteCategory(cat.id); } else { currentCategoryId = cat.id; renderCategories(); } };
+    DOM.categoriesList.appendChild(el);
+  });
+  if (!state.categories.length) { DOM.categoriesList.innerHTML = '<div class="muted" style="padding: 8px 12px;">Nenhuma categoria.</div>'; currentCategoryId = null; }
+  if (!currentCategoryId && state.categories[0]) { currentCategoryId = state.categories[0].id; }
+  renderMain();
+}
+
+function createItemHTML(item) {
+  if (editingItemId === item.id) {
+    return `
+      <div class="item edit-form" data-id="${item.id}">
+        <div><label>Nome</label><input type="text" id="edit-name-${item.id}" value="${Util.escapeHTML(item.name)}"></div>
+        <div><label>URL da Imagem</label><input type="text" id="edit-imageUrl-${item.id}" value="${Util.escapeHTML(item.imageUrl)}"></div>
+        <div><label>Descrição</label><textarea id="edit-desc-${item.id}" rows="2">${Util.escapeHTML(item.desc || '')}</textarea></div>
+        <div><label>Tags</label><input type="text" id="edit-tags-${item.id}" value="${Util.escapeHTML((item.tags || []).join(', '))}"></div>
+        <div class="form-grid">
+          <div><label>Pontuação</label><input type="number" step="0.1" min="0" max="10" id="edit-score-${item.id}" value="${Number(item.score || 0).toFixed(1)}"></div>
+        </div>
+        <div class="flex" style="margin-top:10px; justify-content: flex-end;">
+          <button class="small btn-ghost" data-action="cancel-edit">Cancelar</button>
+          <button class="small" data-action="save-edit" data-id="${item.id}">Salvar</button>
+        </div>
+      </div>`;
   }
-};
 
-/* ============ UI HELPERS ============ */
-const UI = {
-  populateCompareSelects: () => {
-    DOM.compareA.innerHTML = ''; DOM.compareB.innerHTML = '';
-    const items = App.getItemsForCategory(currentCategoryId);
-    items.forEach(it => {
-      const opt = document.createElement('option');
-      opt.value = it.id;
-      opt.textContent = it.name;
-      DOM.compareA.add(opt);
-      DOM.compareB.add(opt.cloneNode(true));
-    });
-    if (items.length > 1) {
-      DOM.compareA.selectedIndex = 0;
-      DOM.compareB.selectedIndex = 1;
-    }
-    UI.updateCompareDetails();
-  },
-  updateCompareDetails: () => {
-    const getDetails = (id) => {
-      const item = state.items.find(i => i.id === id);
-      return item ? `Nota: ${Number(item.score||0).toFixed(1)} • ${item.votes||0} votos • ${(item.tags || []).join(', ')}` : '';
-    };
-    DOM.compareADetails.textContent = getDetails(DOM.compareA.value);
-    DOM.compareBDetails.textContent = getDetails(DOM.compareB.value);
-  },
-  showChart: () => {
-    DOM.chartPanel.classList.remove('hidden');
-    const items = App.getItemsForCategory(currentCategoryId).slice().sort((a,b)=> (b.score||0) - (a.score||0)).slice(0, 20);
-    if(chartInstance) chartInstance.destroy();
-    chartInstance = new Chart(DOM.scoreChartCanvas.getContext('2d'), {
-      type:'bar', data: { labels: items.map(i => i.name), datasets:[{ label:'Pontuação', data: items.map(i => i.score), backgroundColor: 'rgba(124, 58, 237, 0.7)' }]},
-      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 10, ticks: { color: '#94a3b8' }}, x: { ticks: { color: '#94a3b8' }} }, plugins: { legend: { display: false } } }
-    });
-  },
-  hideChart: () => { DOM.chartPanel.classList.add('hidden'); if(chartInstance) { chartInstance.destroy(); chartInstance = null; } }
-};
+  const tagsHTML = (item.tags || []).map(t => `<span class="tag">${Util.escapeHTML(t)}</span>`).join('');
+  const bannerStyle = item.imageUrl ? `background-image: url('${Util.escapeHTML(item.imageUrl)}');` : `background-image: linear-gradient(45deg, rgba(var(--accent-rgb), 0.2), rgba(var(--secondary-rgb), 0.2));`;
+  return `
+    <div class="item" style="--i: ${item.renderIndex}" data-id="${item.id}">
+      <div class="item-banner" style="${bannerStyle}"></div>
+      <div class="item-content">
+        <div class="item-header">
+          <div class="name">${Util.escapeHTML(item.name)}</div>
+          <div class="score-wrapper">
+            <div class="score">${Number(item.score || 0).toFixed(1)}</div>
+            <div class="score-votes">(${item.votes || 0} votos)</div>
+          </div>
+        </div>
+        <div class="desc">${Util.escapeHTML(item.desc || '')}</div>
+        <div class="item-footer">
+          <div class="tags">${tagsHTML}</div>
+          <div class="controls">
+            <button data-action="vote-up" data-id="${item.id}" aria-label="Voto positivo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 8h-6v8h-4v-8H4l8-8z"/></svg></button>
+            <button data-action="vote-down" data-id="${item.id}" aria-label="Voto negativo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20l-8-8h6V4h4v8h6l-8 8z"/></svg></button>
+            <button data-action="edit" data-id="${item.id}" aria-label="Editar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/></svg></button>
+            <button data-action="delete" data-id="${item.id}" aria-label="Excluir"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
 
+function renderMain() {
+  if (!currentCategoryId) {
+    DOM.categoryTitle.textContent = 'Nenhuma categoria'; DOM.categoryCount.textContent = '0 itens';
+    DOM.rankList.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding: 40px 20px; color: var(--muted);">Selecione ou crie uma categoria para começar.</div>`;
+    return;
+  }
+  const cat = state.categories.find(c => c.id === currentCategoryId);
+  DOM.categoryTitle.textContent = cat?.name || '—';
+  let items = App.getItemsForCategory(currentCategoryId);
+  items.sort((a,b)=> (b.score||0) - (a.score||0));
+  items.forEach((item, index) => item.renderIndex = index);
+  DOM.categoryCount.textContent = `${items.length} itens`;
+  DOM.rankList.innerHTML = items.length ? items.map(createItemHTML).join('') : `<div style="grid-column: 1 / -1; text-align:center; padding: 40px 20px; color: var(--muted);">Esta categoria está vazia. Adicione um item!</div>`;
+  AppState.save();
+}
 
-/* ============ EVENT LISTENERS ============ */
 function setupEventListeners() {
   DOM.createCatBtn.onclick = () => { App.createCategory(DOM.catNameInput.value.trim()); DOM.catNameInput.value = ''; };
   DOM.addItemBtn.onclick = () => {
-    App.addItem(DOM.selectCategory.value, DOM.itemNameInput.value.trim(), DOM.itemDescInput.value.trim(), DOM.itemTagsInput.value);
-    DOM.itemNameInput.value = ''; DOM.itemDescInput.value = ''; DOM.itemTagsInput.value = '';
+    App.addItem(currentCategoryId, DOM.itemNameInput.value.trim(), DOM.itemImageUrlInput.value.trim(), DOM.itemDescInput.value.trim(), DOM.itemTagsInput.value);
+    DOM.itemNameInput.value = ''; DOM.itemImageUrlInput.value = ''; DOM.itemDescInput.value = ''; DOM.itemTagsInput.value = ''; DOM.itemNameInput.focus();
   };
-  DOM.selectCategory.onchange = (e) => { currentCategoryId = e.target.value; renderMain(); };
-  DOM.sortBy.onchange = renderMain;
-  DOM.filterTag.oninput = Util.debounce(renderMain, 250);
-  DOM.searchInput.oninput = Util.debounce(renderMain, 200);
-  DOM.clearSearch.onclick = () => { DOM.searchInput.value = ''; renderMain(); };
-
-  // Event Delegation for dynamic elements
   DOM.rankList.addEventListener('click', e => {
     const target = e.target.closest('[data-action]');
     if (!target) return;
@@ -659,73 +418,27 @@ function setupEventListeners() {
         const form = target.closest('.edit-form');
         App.updateItem(id, {
           name: form.querySelector(`#edit-name-${id}`).value,
-          score: parseFloat(form.querySelector(`#edit-score-${id}`).value),
+          imageUrl: form.querySelector(`#edit-imageUrl-${id}`).value,
           desc: form.querySelector(`#edit-desc-${id}`).value,
           tags: App.formatTags(form.querySelector(`#edit-tags-${id}`).value),
+          score: parseFloat(form.querySelector(`#edit-score-${id}`).value),
         });
         break;
       case 'cancel-edit': editingItemId = null; renderMain(); break;
     }
   });
-
-  DOM.categoriesList.addEventListener('click', e => {
-      const target = e.target.closest('[data-action="delete-category"]');
-      if (target && confirm('Excluir categoria e todos os seus itens?')) {
-          App.deleteCategory(target.dataset.id);
-      }
-  });
-
-  DOM.rankList.addEventListener('dragstart', handleDragStart);
-  DOM.rankList.addEventListener('dragover', handleDragOver);
-  DOM.rankList.addEventListener('drop', handleDrop);
-  DOM.rankList.addEventListener('dragend', handleDragEnd);
-
-  DOM.compareBtn.onclick = () => DOM.comparePanel.classList.remove('hidden');
-  DOM.closeCompare.onclick = () => DOM.comparePanel.classList.add('hidden');
-  DOM.compareA.onchange = UI.updateCompareDetails;
-  DOM.compareB.onchange = UI.updateCompareDetails;
-  DOM.showChartBtn.onclick = UI.showChart;
-  DOM.closeChart.onclick = UI.hideChart;
-
-  DOM.importBtn.onclick = () => DOM.fileInput.click();
-  DOM.fileInput.onchange = (e) => { if (e.target.files[0]) App.importFile(e.target.files[0]); e.target.value = ''; };
-  DOM.exportJsonBtn.onclick = () => App.export('json');
-  DOM.exportCsvBtn.onclick = () => App.export('csv');
-  DOM.clearCategoryBtn.onclick = () => {
-    if (!currentCategoryId) return Util.showToast('Nenhuma categoria selecionada', 'danger');
-    if (confirm('APAGAR todos os itens desta categoria?')) {
-      state.items = state.items.filter(it => it.cat !== currentCategoryId);
-      renderMain();
-      Util.showToast('Itens da categoria foram limpos.', 'danger');
-    }
-  };
-  DOM.clearAllBtn.onclick = () => {
-    if (confirm('APAGAR TUDO? Esta ação não pode ser desfeita.')) {
-      localStorage.removeItem(STORAGE_KEY);
-      state = { categories: [], items: [] };
-      renderCategories();
-      Util.showToast('Todos os dados foram apagados.', 'danger');
-    }
-  };
-  DOM.bulkAddBtn.onclick = () => {
-    const csv = prompt('Cole o CSV: nome,desc,tags (cada item em uma nova linha)');
-    if (!csv) return;
-    csv.split(/\r?\n/).filter(Boolean).forEach(line => {
-      const [name, desc, tags] = line.split(',');
-      App.addItem(currentCategoryId, name, desc, (tags || '').split(';'));
+  DOM.showChartBtn.onclick = () => {
+    DOM.chartPanel.classList.remove('hidden');
+    const items = App.getItemsForCategory(currentCategoryId).slice().sort((a,b)=> (b.score||0) - (a.score||0)).slice(0, 15);
+    if(chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(DOM.scoreChartCanvas.getContext('2d'), {
+      type:'bar', data: { labels: items.map(i => i.name), datasets:[{ label:'Pontuação', data: items.map(i => i.score), backgroundColor: 'rgba(139, 92, 246, 0.6)', borderColor: 'rgba(139, 92, 246, 1)', borderWidth: 1, borderRadius: 4 }]},
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 10, ticks: { color: 'var(--muted)' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'var(--muted)' }, grid: { color: 'transparent' }} }, plugins: { legend: { display: false } } }
     });
-    Util.showToast(`${csv.split(/\r?\n/).filter(Boolean).length} itens adicionados em massa.`);
   };
-
-  document.addEventListener('keydown', (e) => {
-    const activeEl = document.activeElement.tagName;
-    if (activeEl === 'INPUT' || activeEl === 'TEXTAREA') return;
-    if (e.key.toLowerCase() === 'n') { e.preventDefault(); DOM.catNameInput.focus(); }
-    if (e.key.toLowerCase() === 'i') { e.preventDefault(); DOM.itemNameInput.focus(); }
-  });
+  DOM.closeChart.onclick = () => DOM.chartPanel.classList.add('hidden');
 }
 
-/* ============ BOOT ============ */
 function boot() {
   AppState.load();
   if (!currentCategoryId && state.categories[0]) {
